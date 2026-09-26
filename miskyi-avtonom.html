@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Міський автоном</title>
+<style>
+  :root{
+    --bg:#14171a; --bg2:#1d2126; --panel:#22262c; --text:#f2f0ea; --muted:#9aa2ab;
+    --accent:#f2a93b; --accent-d:#c98a24; --danger:#e14b4b; --danger-d:#a83030;
+    --ok:#4caf7d; --border:#33383f; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Roboto,Segoe UI,Helvetica,Arial,sans-serif;
+    font-size:18px;line-height:1.4;}
+  body{padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);}
+  h1,h2,h3{margin:0 0 .5em 0;font-weight:700;}
+  h1{font-size:1.5rem;} h2{font-size:1.25rem;} h3{font-size:1.05rem;color:var(--accent);}
+  p{margin:.3em 0;}
+  .screen{display:none;padding:16px 16px 32px;max-width:640px;margin:0 auto;}
+  .screen.active{display:block;}
+  header.top{position:sticky;top:0;background:var(--bg);z-index:5;
+    padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+  header.top .backBtn{background:none;border:none;color:var(--text);font-size:1.6rem;padding:0 6px;cursor:pointer;}
+  header.top h1{flex:1;font-size:1.15rem;margin:0;}
+  .sosFab{position:fixed;right:14px;bottom:14px;z-index:20;background:var(--danger);
+    color:#fff;border:none;border-radius:50%;width:64px;height:64px;font-size:1.7rem;
+    box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  button.tile{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    color:var(--text);padding:16px 10px;font-size:1.05rem;text-align:left;min-height:78px;
+    display:flex;flex-direction:column;justify-content:center;gap:4px;cursor:pointer;}
+  button.tile .em{font-size:1.6rem;}
+  button.tile:active{background:var(--bg2);}
+  button.wide{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    color:var(--text);padding:16px;font-size:1.05rem;text-align:left;margin:8px 0;min-height:60px;cursor:pointer;}
+  button.wide:active{background:var(--bg2);}
+  button.primary{background:var(--accent);color:#1a1a1a;border:none;font-weight:700;}
+  button.primary:active{background:var(--accent-d);}
+  button.danger{background:var(--danger);color:#fff;border:none;font-weight:700;}
+  button.danger:active{background:var(--danger-d);}
+  button.ghost{background:none;border:1px solid var(--border);color:var(--text);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+  .chip{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:10px 16px;
+    cursor:pointer;font-size:.95rem;}
+  .chip.active{background:var(--accent);color:#1a1a1a;border-color:var(--accent);font-weight:700;}
+  label.field{display:block;margin:14px 0 6px;color:var(--muted);font-size:.9rem;}
+  select,input[type=number],input[type=text]{width:100%;padding:12px;border-radius:10px;
+    border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:1rem;}
+  .checkline{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .checkline input{width:22px;height:22px;flex:none;}
+  .warnBox{background:#3a2420;border:1px solid var(--danger);border-radius:var(--radius);
+    padding:14px;margin:12px 0;}
+  .warnBox h3{color:var(--danger);margin-top:0;}
+  .stepBlock{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px;margin:12px 0;}
+  .stepBlock ol{padding-left:1.3em;margin:.4em 0;}
+  .stepBlock li{margin:.4em 0;}
+  .dontBox{background:#2a2418;border:1px solid var(--accent-d);border-radius:var(--radius);
+    padding:12px 14px;margin:10px 0;font-size:.95rem;}
+  .muted{color:var(--muted);font-size:.9rem;}
+  .callBtn{display:block;text-align:center;text-decoration:none;background:var(--danger);
+    color:#fff;padding:16px;border-radius:var(--radius);font-size:1.2rem;font-weight:700;margin:10px 0;}
+  .searchResult{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px 14px;margin:10px 0;cursor:pointer;}
+  .searchResult h3{margin:0 0 4px;}
+  .footNote{font-size:.8rem;color:var(--muted);margin-top:22px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+/* ---------- STATE ---------- */
+const DEFAULT_STATE = {
+  profile:{mobility:null,housing:null,floor:null,elevator:null,stairsHard:null,people:'1',pets:'none',help:null},
+  resources:{waterL:null,waterTech:false,flashlight:false,headlamp:false,candles:false,batteries:false,
+    powerbank:false,station:false,car:false,blankets:false,warmClothes:false,thermos:false,
+    foodReady:false,foodNoCook:false,foodNeedCook:false,radio:false,firstaid:false,hygiene:false,essentials:false},
+  prepChecked:{}
+};
+let state = load();
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem('ma_state_v1'));
+    if(s) return Object.assign(JSON.parse(JSON.stringify(DEFAULT_STATE)), s);
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+}
+function save(){ localStorage.setItem('ma_state_v1', JSON.stringify(state)); }
+
+/* ---------- NAV ---------- */
+let history_ = [];
+let current = null;
+let ctx = {}; // transient per-flow data (situation, duration, etc.)
+function go(screen, pushHistory=true){
+  if(pushHistory && current) history_.push(current);
+  current = screen;
+  render();
+  window.scrollTo(0,0);
+}
+function back(){
+  const prev = history_.pop();
+  go(prev || 'home', false);
+}
+
+/* ---------- SITUATIONS ---------- */
+const SITUATIONS = [
+  {key:'power', em:'⚡', label:'Немає світла'},
+  {key:'water', em:'💧', label:'Немає води'},
+  {key:'heat',  em:'🥶', label:'Холодно'},
+  {key:'hot',   em:'🥵', label:'Спекотно'},
+  {key:'gas',   em:'🔥', label:'Немає газу'},
+  {key:'net',   em:'📵', label:'Немає зв\'язку'},
+  {key:'dark',  em:'🌑', label:'Темно'},
+  {key:'food',  em:'🍲', label:'Не можу готувати'},
+  {key:'toilet',em:'🚽', label:'Проблеми з туалетом'},
+  {key:'leave', em:'🚪', label:'Треба вийти'}
+];
+const DURATIONS = [
+  {key:'lt1', label:'< 1 год'},
+  {key:'1_3', label:'1–3 год'},
+  {key:'3_6', label:'3–6 год'},
+  {key:'6_12',label:'6–12 год'},
+  {key:'12_24',label:'12–24 год'},
+  {key:'gt24',label:'Понад добу'},
+  {key:'unknown',label:'Невідомо'}
+];
+
+/* ---------- PLAN LOGIC ---------- */
+function isHardMobility(){
+  return ['needsSupport','stairsHard','cantMove','lying'].includes(state.profile.mobility);
+}
+function isLying(){ return state.profile.mobility === 'lying'; }
+function stairsProblem(){
+  return state.profile.elevator === 'no' && Number(state.profile.floor||0) > 2;
+}
+function longDuration(dur){ return ['12_24','gt24','unknown'].includes(dur); }
+
+function buildPlan(sit, dur){
+  const p = {warnings:[], immediate:[], next:[], later:[], dont:[], nextScenario:null};
+  const R = state.resources;
+
+  if(sit==='power'){
+    p.immediate.push('Перевірте, чи це відключення у Вас, чи в усьому будинку/районі — гляньте у вікно чи світиться десь ще.');
+    p.immediate.push('Зарядіть телефон зараз, поки є будь-яке джерело (павербанк, авто), навіть якщо заряд ще високий.');
+    if(!R.flashlight && !R.headlamp) p.immediate.push('Підготуйте джерело світла: телефон із мінімальною яскравістю, свічку в безпечному місці.');
+    p.next.push('Вимкніть або від\'єднайте прилади, які можуть увімкнутися одночасно при поверненні світла (праска, обігрівач, плита).');
+    p.next.push('Не відчиняйте зайвий раз холодильник і морозильну камеру — це продовжить збереження холоду.');
+    if(R.powerbank || R.station) p.next.push('Розподіліть заряд: спочатку зв\'язок і освітлення, розваги — в останню чергу.');
+    else p.next.push('Переведіть телефон у режим економії заряду й вимкніть непотрібні застосунки.');
+    if(longDuration(dur)){
+      p.later.push('Якщо є авто — можна періодично заряджати техніку від нього (не в закритому гаражі, через чадний газ).');
+      p.nextScenario = 'Тривалий перебій';
+    }
+    p.dont.push('Не використовуйте генератор чи мангал у приміщенні або на балконі — отруєння чадним газом.');
+  }
+
+  if(sit==='water'){
+    const liters = Number(R.waterL||0);
+    p.immediate.push('Наберіть воду в усі доступні ємності зараз, навіть якщо подача ще є, — на випадок, що зникне.');
+    if(liters && liters>0) p.immediate.push(`У Вас приблизно ${liters} л — розподіліть: пиття в пріоритеті, далі готування, гігієна, туалет.`);
+    else p.immediate.push('Оцініть, скільки питної води у Вас є зараз (пляшки, чайник, каструлі).');
+    p.next.push('Для пиття і готування використовуйте лише перевірену питну воду; технічну — тільки для миття й зливу туалету.');
+    if(R.waterTech) p.next.push('Технічну воду тримайте окремо, підписаною, щоб не переплутати з питною.');
+    p.next.push('Скоротіть миття посуду — використовуйте паперові серветки чи одноразовий посуд, якщо є.');
+    if(longDuration(dur)) { p.later.push('Плануйте похід по воду в найближчу точку видачі або до сусідів, якщо перебій затягується.'); p.nextScenario='Тривалий перебій з водою'; }
+    p.dont.push('Не пийте воду з батарей опалення, невідомих джерел чи технічну воду без крайньої потреби.');
+  }
+
+  if(sit==='heat'){
+    p.immediate.push('Перейдіть у найменше й найтепліше приміщення квартири, зачиніть двері до інших кімнат.');
+    p.immediate.push('Одягніться шарами: спершу термобілизна/бавовна, зверху тепліше, обов\'язково шкарпетки і шапка вдома.');
+    if(R.blankets) p.immediate.push('Використайте ковдри — накритися й підстелити знизу (холод іде і від підлоги).');
+    if(R.thermos) p.next.push('Приготуйте гарячий напій у термосі заздалегідь, поки є можливість.');
+    if(isHardMobility()) p.warnings.push('Для людини з обмеженою рухливістю переохолодження настає швидше — перевіряйте стан кожні 1–2 години (мова, колір губ, тремтіння).');
+    p.next.push('Закрийте щілини під дверима й вікнами тканиною, щоб зменшити протяг.');
+    p.dont.push('Не використовуйте газову плиту чи мангал для обігріву приміщення — небезпека чадного газу та пожежі.');
+    p.dont.push('Не залишайте свічки без нагляду поруч із тканиною чи людиною, що спить.');
+    if(longDuration(dur)){ p.later.push('Якщо температура в квартирі продовжує падати нижче +10°C — розгляньте тимчасовий переїзд до теплішого місця (родичі, пункт незламності).'); p.nextScenario='Температура продовжує падати'; }
+  }
+
+  if(sit==='hot'){
+    p.immediate.push('Зменшіть надходження сонця: зашторте вікна з сонячного боку, провітріть у прохолодніші години (рано-вранці, ввечері).');
+    p.immediate.push('Пийте воду частіше малими порціями, навіть без відчуття спраги.');
+    if(isHardMobility()||isLying()) p.warnings.push('Перегрів у людей з обмеженою рухливістю розвивається непомітно — перевіряйте самопочуття, вологу шкіру, сплутаність мовлення частіше.');
+    p.next.push('Змочіть тканину прохолодною водою і прикладіть до шиї, зап\'ясть, лоба.');
+    p.next.push('Носіть легкий світлий одяг із натуральних тканин, уникайте фізичних навантажень у спеку.');
+    if(R.waterL && Number(R.waterL)<2) p.warnings.push('Запас води невеликий — плануйте його поповнення заздалегідь, у спеку потреба у воді зростає.');
+    p.dont.push('Не залишайте дітей, літніх людей чи тварин у закритому приміщенні без провітрювання й води.');
+  }
+
+  if(sit==='gas'){
+    p.warnings.push('Якщо відчуваєте запах газу — негайно перекрийте кран, відчиніть вікна, НЕ вмикайте світло й техніку, вийдіть і телефонуйте 104/112.');
+    p.immediate.push('Перевірте, чи вимкнено конфорки та чи перекрито кран подачі газу.');
+    if(R.foodReady||R.foodNoCook) p.next.push('Скористайтеся їжею, що не потребує приготування, поки немає газу.');
+    else p.next.push('Використайте альтернативу для готування: електрочайник/плитку (якщо є світло), або холодні страви.');
+    p.dont.push('Не намагайтеся самостійно ремонтувати газове обладнання чи трубу.');
+    p.dont.push('Не використовуйте відкритий вогонь для перевірки витоку газу.');
+  }
+
+  if(sit==='net'){
+    p.immediate.push('Перевірте, чи це стосується лише мобільного зв\'язку, чи й інтернету загалом (спробуйте інший оператор/Wi-Fi).');
+    p.immediate.push('Повідомте заздалегідь одну довірену людину поза зоною відключення про Ваш план дій, якщо ще є короткий момент зв\'язку.');
+    p.next.push('Збережіть заряд телефону — вимкніть пошук мережі в режимі "у літаку", якщо зв\'язку явно немає, вмикайте на перевірку раз на годину.');
+    if(R.radio) p.next.push('Увімкніть радіоприймач на батарейках для новин і сповіщень.');
+    p.later.push('Домовтеся заздалегідь із сусідами чи родиною про місце зустрічі або сигнал, якщо зв\'язок пропаде надовго.');
+  }
+
+  if(sit==='dark'){
+    p.immediate.push('Тримайте джерело світла в одному постійному, відомому Вам місці, щоб знайти його навіть навпомацки.');
+    if(R.headlamp) p.immediate.push('Використовуйте налобний ліхтар — руки залишаються вільними.');
+    else if(R.flashlight) p.immediate.push('Використовуйте кишеньковий ліхтар, тримайте його завжди в одному місці.');
+    else p.immediate.push('За відсутності ліхтаря використовуйте мінімальну яскравість екрана телефону, щоб зберегти заряд.');
+    if(isHardMobility()||stairsProblem()) p.warnings.push('У темряві ризик падіння зростає — прибирайте з підлоги зайві предмети, рухайтеся повільно, тримайтеся стін чи меблів.');
+    p.dont.push('Не залишайте відкритий вогонь (свічку) без нагляду, особливо якщо в помешканні є діти чи тварини.');
+  }
+
+  if(sit==='food'){
+    p.immediate.push('Спочатку використовуйте продукти, які швидко псуються без холодильника.');
+    if(R.foodReady) p.immediate.push('У Вас є готова їжа — почніть із неї.');
+    if(R.foodNoCook) p.next.push('Продукти, що не потребують приготування (консерви, хліб, сухофрукти, горіхи), — основа раціону на час перебою.');
+    p.next.push('Їжте частіше, малими порціями, якщо доступ до готування обмежений.');
+    if(longDuration(dur)) p.later.push('Плануйте раціон на кілька днів наперед, розподіляючи продукти, що швидко псуються, в перші дні.');
+    p.dont.push('Не вживайте продукти з холодильника, якщо він був вимкнений понад 4 години і Ви не впевнені у свіжості (особливо м\'ясо, молочне).');
+  }
+
+  if(sit==='toilet'){
+    p.immediate.push('Якщо є вода — використовуйте її ощадливо для зливу (відро води замість бачка).');
+    if(R.waterTech) p.next.push('Використовуйте технічну (непитну) воду для зливу — це заощадить питну.');
+    p.next.push('За тривалої відсутності каналізації — використайте пакет із наповнювачем (кицький наповнювач, тирса, попіл) у відрі, щільно закривайте.');
+    if(isHardMobility()||isLying()) p.warnings.push('Для маломобільної людини заздалегідь підготуйте зручне й безпечне місце поруч, аби уникнути ризикованих переміщень.');
+    p.dont.push('Не зливайте відходи в загальні стоки чи на вулицю — це загроза санітарній безпеці.');
+  }
+
+  if(sit==='leave'){
+    if(isHardMobility()||stairsProblem()){
+      p.warnings.push('Оцініть, чи можете Ви безпечно подолати сходи самостійно. Якщо ні — не ризикуйте, а зверніться по допомогу (сусіди, служби, довірена людина) і повідомте, де Ви перебуваєте.');
+    } else {
+      p.immediate.push('Візьміть телефон, документи, ліхтар і воду з собою.');
+    }
+    p.immediate.push('Повідомте комусь, куди Ви йдете і коли орієнтовно повернетесь.');
+    p.next.push('Одягніться відповідно до погоди, візьміть засоби зв\'язку та, якщо є, зарядний павербанк.');
+    if(state.profile.pets && state.profile.pets!=='none') p.next.push('Якщо берете тварину — переносник/повідець, вода й трохи корму.');
+    p.dont.push('Не залишайте без нагляду відкритий вогонь, ввімкнені прилади чи незачинений газ, виходячи з дому.');
+  }
+
+  return p;
+}
+
+const DANGER_NOTES = {
+  gas:'Запах газу, чадний газ, відкритий вогонь у приміщенні — завжди пріоритетна небезпека.',
+  power:'Генератори та зарядка авто працюють лише на відкритому повітрі або з відведенням вихлопу.',
+};
+
+/* ---------- SEARCH DB (compact) ---------- */
+const SEARCH_DB = [
+  {tags:'світло електрика заряд телефон', title:'Немає світла', sit:'power'},
+  {tags:'вода питна технічна спрага', title:'Немає води', sit:'water'},
+  {tags:'холодно опалення мерзну тепло', title:'Холодно, немає опалення', sit:'heat'},
+  {tags:'спека жарко перегрів', title:'Спекотно', sit:'hot'},
+  {tags:'газ плита конфорка запах', title:'Немає газу / запах газу', sit:'gas'},
+  {tags:'зв\'язок інтернет мобільний немає мережі', title:'Немає зв\'язку', sit:'net'},
+  {tags:'темно ліхтар свічка', title:'Темно', sit:'dark'},
+  {tags:'їжа готувати голодний харчування', title:'Не можу приготувати їжу', sit:'food'},
+  {tags:'туалет каналізація злив', title:'Проблеми з туалетом', sit:'toilet'},
+  {tags:'вийти евакуація сходи ліфт', title:'Треба вийти з дому', sit:'leave'}
+];
+
+/* ---------- RENDER ---------- */
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content; }
+
+function screenWrap(title, bodyHtml, showBack=true){
+  return `
+  <header class="top">
+    ${showBack? `<button class="backBtn" onclick="back()">‹</button>`:'<div style="width:30px"></div>'}
+    <h1>${title}</h1>
+  </header>
+  <div class="screen active">${bodyHtml}</div>
+  <button class="sosFab" onclick="go('sos')" title="SOS">🆘</button>
+  `;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(current==='home') app.innerHTML = renderHome();
+  else if(current==='situation') app.innerHTML = renderSituationPicker();
+  else if(current==='duration') app.innerHTML = renderDuration();
+  else if(current==='plan') app.innerHTML = renderPlan();
+  else if(current==='profile') app.innerHTML = renderProfile();
+  else if(current==='resources') app.innerHTML = renderResources();
+  else if(current==='search') app.innerHTML = renderSearch();
+  else if(current==='sos') app.innerHTML = renderSOS();
+  else if(current==='prep') app.innerHTML = renderPrep();
+  else if(current==='night') app.innerHTML = renderNightDay('night');
+  else if(current==='day') app.innerHTML = renderNightDay('day');
+  else app.innerHTML = renderHome();
+}
+
+function renderHome(){
+  let tiles = SITUATIONS.map(s=>`<button class="tile" onclick="startSituation('${s.key}')">
+      <span class="em">${s.em}</span><span>${s.label}</span></button>`).join('');
+  return `
+  <header class="top"><div style="width:30px"></div><h1>Міський автоном</h1></header>
+  <div class="screen active">
+    <p class="muted">Що у Вас зараз?</p>
+    <div class="grid">${tiles}</div>
+    <button class="wide" onclick="go('search')">🔍 Інша ситуація / пошук</button>
+    <div class="row" style="margin-top:18px">
+      <button class="wide" style="flex:1" onclick="go('night')">🌙 Пережити ніч</button>
+      <button class="wide" style="flex:1" onclick="go('day')">☀️ Пережити 12 годин</button>
+    </div>
+    <button class="wide" onclick="go('profile')">👤 Мої умови</button>
+    <button class="wide" onclick="go('prep')">🎒 Підготуватися заздалегідь</button>
+    <p class="footNote">Особисті дані зберігаються лише на цьому пристрої. Це не замінює швидку та медичну допомогу.</p>
+  </div>
+  <button class="sosFab" onclick="go('sos')" title="SOS">🆘</button>`;
+}
+
+function startSituation(key){
+  ctx.sit = key;
+  go('duration');
+}
+
+function renderDuration(){
+  const chips = DURATIONS.map(d=>`<button class="chip" onclick="pickDuration('${d.key}')">${d.label}</button>`).join('');
+  return screenWrap('Скільки це вже триває?', `
+    <p class="muted">Це впливає на план дій.</p>
+    <div class="row">${chips}</div>
+  `);
+}
+function pickDuration(dkey){ ctx.dur = dkey; go('plan'); }
+
+function renderPlan(){
+  const meta = SITUATIONS.find(s=>s.key===ctx.sit) || {label:'Ситуація'};
+  const plan = buildPlan(ctx.sit, ctx.dur);
+  let html = `<p class="muted">${meta.em||''} ${meta.label} · ${DURATIONS.find(d=>d.key===ctx.dur)?.label||''}</p>`;
+  if(plan.warnings.length){
+    html += `<div class="warnBox"><h3>⚠️ Небезпека</h3>${plan.warnings.map(w=>`<p>${w}</p>`).join('')}</div>`;
+  }
+  html += stepSection('Перші 10 хвилин', plan.immediate);
+  html += stepSection('Наступні години', plan.next);
+  if(plan.later.length) html += stepSection('Якщо триває довше', plan.later);
+  if(plan.dont.length){
+    html += `<div class="dontBox"><h3 style="color:var(--accent);margin-top:0">Чого НЕ робити</h3>${plan.dont.map(d=>`<p>• ${d}</p>`).join('')}</div>`;
+  }
+  if(plan.nextScenario){
+    html += `<p class="muted">Наступний сценарій: <b>${plan.nextScenario}</b></p>`;
+  }
+  html += `<button class="wide danger" onclick="go('sos')">🆘 Стан погіршився / небезпечно</button>`;
+  html += `<button class="wide primary" onclick="go('home')">На головну</button>`;
+  return screenWrap(meta.label||'План', html);
+}
+function stepSection(title, items){
+  if(!items || !items.length) return '';
+  return `<div class="stepBlock"><h3>${title}</h3><ol>${items.map(i=>`<li>${i}</li>`).join('')}</ol></div>`;
+}
+
+/* ---- PROFILE ---- */
+function renderProfile(){
+  const p = state.profile;
+  return screenWrap('Мої умови', `
+    <label class="field">Як Ви пересуваєтесь?</label>
+    <select id="f_mobility">
+      ${opt('normal','Нормально', p.mobility)}
+      ${opt('slow','Повільно', p.mobility)}
+      ${opt('needsSupport','Потрібна опора', p.mobility)}
+      ${opt('stairsHard','Важко зі сходами', p.mobility)}
+      ${opt('cantMove','Практично не можу пересуватись', p.mobility)}
+      ${opt('lying','Лежу', p.mobility)}
+    </select>
+
+    <label class="field">Житло</label>
+    <select id="f_housing">
+      ${opt('apartment','Квартира', p.housing)}
+      ${opt('house','Приватний будинок', p.housing)}
+      ${opt('dorm','Гуртожиток', p.housing)}
+      ${opt('other','Інше', p.housing)}
+    </select>
+
+    <label class="field">Поверх</label>
+    <input type="number" id="f_floor" min="0" value="${p.floor??''}" placeholder="напр., 8">
+
+    <label class="field">Ліфт є?</label>
+    <select id="f_elevator">
+      ${opt('yes','Так', p.elevator)}
+      ${opt('no','Ні', p.elevator)}
+    </select>
+
+    <label class="field">Скільки людей / хто вдома</label>
+    <select id="f_people">
+      ${opt('1','Один(-на)', p.people)}
+      ${opt('2','Двоє', p.people)}
+      ${opt('family','Сім\'я з дітьми', p.people)}
+      ${opt('needHelp','Є людина, якій потрібна допомога', p.people)}
+    </select>
+
+    <label class="field">Тварини</label>
+    <select id="f_pets">
+      ${opt('none','Немає', p.pets)}
+      ${opt('cat','Кіт/кішка', p.pets)}
+      ${opt('dog','Собака', p.pets)}
+      ${opt('other','Інша тварина', p.pets)}
+    </select>
+
+    <button class="wide primary" onclick="saveProfile()">Зберегти</button>
+  `);
+}
+function opt(v,label,cur){ return `<option value="${v}" ${cur===v?'selected':''}>${label}</option>`; }
+function saveProfile(){
+  state.profile.mobility = document.getElementById('f_mobility').value;
+  state.profile.housing = document.getElementById('f_housing').value;
+  state.profile.floor = document.getElementById('f_floor').value;
+  state.profile.elevator = document.getElementById('f_elevator').value;
+  state.profile.people = document.getElementById('f_people').value;
+  state.profile.pets = document.getElementById('f_pets').value;
+  save();
+  go('home', false);
+}
+
+/* ---- RESOURCES ---- */
+function renderResources(){
+  const R = state.resources;
+  const c = (id,label)=>`<div class="checkline"><input type="checkbox" id="${id}" ${R[id]?'checked':''}><label for="${id}">${label}</label></div>`;
+  return screenWrap('Що у Вас є', `
+    <label class="field">Вода (літрів приблизно)</label>
+    <input type="number" id="r_waterL" min="0" value="${R.waterL??''}">
+    ${c('waterTech','Є запас технічної (непитної) води')}
+    <h3>Освітлення</h3>
+    ${c('flashlight','Ліхтар')} ${c('headlamp','Налобний ліхтар')} ${c('candles','Свічки')} ${c('batteries','Батарейки')}
+    <h3>Енергія</h3>
+    ${c('powerbank','Павербанк')} ${c('station','Зарядна станція')} ${c('car','Автомобіль')}
+    <h3>Тепло</h3>
+    ${c('blankets','Ковдри')} ${c('warmClothes','Теплий одяг')} ${c('thermos','Термос')}
+    <h3>Їжа</h3>
+    ${c('foodReady','Готова їжа')} ${c('foodNoCook','Продукти без приготування')} ${c('foodNeedCook','Продукти, що потребують приготування')}
+    <h3>Інше</h3>
+    ${c('radio','Радіоприймач')} ${c('firstaid','Аптечка')} ${c('hygiene','Засоби гігієни')} ${c('essentials','Необхідні особисті речі')}
+    <button class="wide primary" onclick="saveResources()">Зберегти</button>
+  `);
+}
+function saveResources(){
+  const R = state.resources;
+  R.waterL = document.getElementById('r_waterL').value;
+  ['waterTech','flashlight','headlamp','candles','batteries','powerbank','station','car',
+   'blankets','warmClothes','thermos','foodReady','foodNoCook','foodNeedCook',
+   'radio','firstaid','hygiene','essentials'].forEach(id=>{ R[id]=document.getElementById(id).checked; });
+  save();
+  go('home', false);
+}
+
+/* ---- SEARCH ---- */
+function renderSearch(){
+  return screenWrap('Пошук', `
+    <input type="text" id="searchInput" placeholder="напр., як зігрітися, немає води…" oninput="doSearch()">
+    <div id="searchResults" style="margin-top:14px"></div>
+  `);
+}
+function doSearch(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const box = document.getElementById('searchResults');
+  if(!q){ box.innerHTML=''; return; }
+  const hits = SEARCH_DB.filter(e=> e.tags.includes(q) || e.title.toLowerCase().includes(q));
+  box.innerHTML = hits.length ? hits.map(h=>`<div class="searchResult" onclick="startSituation('${h.sit}')">
+      <h3>${h.title}</h3><p class="muted">Відкрити план дій</p></div>`).join('')
+    : `<p class="muted">Нічого не знайдено. Спробуйте інше слово або оберіть ситуацію з головного екрана.</p>`;
+}
+
+/* ---- SOS ---- */
+function renderSOS(){
+  return screenWrap('🆘 Небезпечно', `
+    <div class="warnBox"><h3>Це не рятувальна служба</h3>
+      <p>Цей застосунок не замінює швидку, поліцію чи рятувальників. Якщо є пряма загроза життю — телефонуйте негайно.</p></div>
+    <a class="callBtn" href="tel:112">📞 112 — єдиний номер екстреної допомоги</a>
+    <a class="callBtn" href="tel:103">📞 103 — швидка медична допомога</a>
+    <a class="callBtn" href="tel:101">📞 101 — пожежна служба</a>
+    <a class="callBtn" href="tel:102">📞 102 — поліція</a>
+    <div class="stepBlock"><h3>Поки чекаєте на допомогу</h3><ol>
+      <li>Не залишайтесь на самоті, якщо є хтось поруч — попросіть залишитися з Вами.</li>
+      <li>Усуньте очевидну небезпеку поруч (вогонь, газ, електрику), якщо це безпечно зробити.</li>
+      <li>Тримайте телефон зарядженим і на видноті, повідомте свою точну адресу диспетчеру.</li>
+    </ol></div>
+    <button class="wide" onclick="go('home')">На головну</button>
+  `);
+}
+
+/* ---- PREP CHECKLIST ---- */
+const PREP_BASE = [
+  {id:'water', label:'Запас питної води (мінімум на 2–3 дні)'},
+  {id:'food', label:'Продукти, що не потребують приготування'},
+  {id:'light', label:'Ліхтар/налобний ліхтар і батарейки'},
+  {id:'power', label:'Заряджений павербанк'},
+  {id:'warmth', label:'Теплі речі / ковдра'},
+  {id:'hygiene', label:'Засоби гігієни'},
+  {id:'comms', label:'Радіо на батарейках або список контактів на папері'},
+  {id:'docs', label:'Копії важливих документів і необхідні особисті речі'}
+];
+function renderPrep(){
+  const extra = [];
+  if(stairsProblem()) extra.push({id:'stairs', label:'Домовленість із сусідами на нижчих поверхах про допомогу при потребі спуститися'});
+  if(isHardMobility()) extra.push({id:'mobhelp', label:'Контакт людини, яка може прийти на допомогу протягом години'});
+  if(state.profile.pets && state.profile.pets!=='none') extra.push({id:'pets', label:'Переносник/повідець, запас корму та води для тварини'});
+  if(state.profile.people==='family') extra.push({id:'kids', label:'Речі першої потреби для дітей (їжа, ліки, іграшка для заспокоєння)'});
+  const all = PREP_BASE.concat(extra);
+  const items = all.map(i=>`<div class="checkline">
+      <input type="checkbox" id="prep_${i.id}" ${state.prepChecked[i.id]?'checked':''} onchange="togglePrep('${i.id}', this.checked)">
+      <label for="prep_${i.id}">${i.label}</label></div>`).join('');
+  return screenWrap('Підготуватися заздалегідь', `
+    <p class="muted">Список складено з урахуванням Ваших умов (заповніть «Мої умови» для точнішого списку).</p>
+    ${items}
+  `);
+}
+function togglePrep(id, val){ state.prepChecked[id]=val; save(); }
+
+/* ---- NIGHT / DAY QUICK MODE ---- */
+function renderNightDay(mode){
+  const title = mode==='night' ? 'Пережити ніч' : 'Пережити 12 годин';
+  if(!ctx.tempPick){
+    return screenWrap(title, `
+      <p class="muted">Яка зараз температура вдома?</p>
+      <div class="row">
+        <button class="chip" onclick="pickTemp('${mode}','cold')">Холодно</button>
+        <button class="chip" onclick="pickTemp('${mode}','normal')">Нормально</button>
+        <button class="chip" onclick="pickTemp('${mode}','hot')">Спекотно</button>
+      </div>
+    `);
+  }
+  const temp = ctx.tempPick;
+  let items = [];
+  if(mode==='night'){
+    items.push('Оберіть найбезпечніше й найтихіше приміщення для сну, подалі від вікон.');
+    if(temp==='cold') items.push('Одягніться шарами перед сном, підготуйте ковдри знизу і зверху.');
+    if(temp==='hot') items.push('Провітріть кімнату зараз, поки прохолодніше, і залиште трохи відкрите вікно, якщо безпечно.');
+    items.push('Поставте поруч: воду, ліхтар, телефон на зарядці (якщо є від чого), взуття «на всяк випадок».');
+    items.push('Продумайте, як організувати туалет вночі, якщо він недоступний, — ємність поруч.');
+    items.push('Вимкніть зайві прилади й перевірте, що немає відкритого вогню без нагляду.');
+  } else {
+    items.push('Розподіліть на 12 годин: воду — рівними частинами, заряд телефону — лише на зв\'язок і світло.');
+    if(temp==='cold') items.push('Плануйте активність у теплішій частині дня, відпочинок — у найтепліший проміжок.');
+    if(temp==='hot') items.push('Плануйте фізичну активність на ранок/вечір, відпочивайте в найспекотніші години.');
+    items.push('Заплануйте 1–2 прийоми їжі з того, що не потребує приготування.');
+    items.push('Раз на кілька годин перевіряйте самопочуття, особливо якщо вдома є маломобільна людина чи діти.');
+  }
+  return screenWrap(title, `
+    <p class="muted">Температура: ${temp==='cold'?'холодно':temp==='hot'?'спекотно':'нормально'}</p>
+    ${stepSection('План', items)}
+    <button class="wide" onclick="go('sos')">🆘 Стало гірше</button>
+    <button class="wide primary" onclick="ctx.tempPick=null; go('home')">На головну</button>
+  `);
+}
+function pickTemp(mode, t){ ctx.tempPick = t; render(); }
+
+/* ---------- INIT ---------- */
+go('home', false);
+</script>
+</body>
+</html>
